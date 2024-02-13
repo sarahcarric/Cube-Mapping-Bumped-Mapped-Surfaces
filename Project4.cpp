@@ -172,8 +172,9 @@ float	Scale;					// scaling factor
 float	Time;					// used for animation, this has a value between 0. and 1.
 int		Xmouse, Ymouse;			// mouse values
 float	Xrot, Yrot;				// rotation angles in degrees
-
-int		SphereList;
+GLuint CubeName;
+GLuint Noise3;
+int GridofQuadsList;
 
 
 // function prototypes:
@@ -194,6 +195,7 @@ void	InitMenus( );
 void	Keyboard( unsigned char, int, int );
 void	MouseButton( int, int, int, int );
 void	MouseMotion( int, int );
+unsigned char * ReadTexture3D(char*, int*, int*, int*);
 void	Reset( );
 void	Resize( int, int );
 void	Visibility( int );
@@ -250,18 +252,28 @@ MulArray3(float factor, float a, float b, float c )
 
 // these are here for when you need them -- just uncomment the ones you need:
 
-//#include "setmaterial.cpp"
+#include "setmaterial.cpp"
 //#include "setlight.cpp"
 #include "osusphere.cpp"
 //#include "osucone.cpp"
 //#include "osutorus.cpp"
-//#include "bmptotexture.cpp"
+#include "bmptotexture.cpp"
 //#include "loadobjfile.cpp"
 #include "keytime.cpp"
 #include "glslprogram.cpp"
 
 float NowS0, NowT0, NowD;
 GLSLProgram Pattern;
+char * FaceFiles[6] =
+{
+	"kec.posx.bmp",
+	"kec.negx.bmp",
+	"kec.posy.bmp",
+	"kec.negy.bmp",
+	"kec.posz.bmp",
+	"kec.negz.bmp"
+};
+
 
 
 // main program:
@@ -403,6 +415,11 @@ Display( )
 	// since we are using glScalef( ), be sure the normals get unitized:
 
 	glEnable( GL_NORMALIZE );
+	glActiveTexture( GL_TEXTURE3 );
+	glBindTexture(GL_TEXTURE_3D, CubeName);
+	glBindTexture(GL_TEXTURE_3D, Noise3 );
+
+
 
 	// draw the box object by calling up its display list:
 
@@ -417,7 +434,6 @@ Display( )
 	Pattern.SetUniformVariable( (char *)"uT0", NowT0 );
 	Pattern.SetUniformVariable( (char *)"uD" , NowD  );
 
-	glCallList( SphereList );
 
 	Pattern.UnUse( );       // Pattern.Use(0);  also works
 
@@ -716,7 +732,42 @@ InitGraphics( )
 #endif
 
 	// all other setups go here, such as GLSLProgram and KeyTime setups:
+		glGenTextures(1, &Noise3);
+	glBindTexture(GL_TEXTURE_3D, Noise3);
+	glPixelStorei(GL_UNPACK_ALIGNMENT,1);
+	glTexParameteri( GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_REPEAT );
+	glTexParameteri( GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_REPEAT );
+	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_REPEAT); 
+	glTexParameteri( GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR );
+	glTexParameteri( GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	int nums, numt, nump;
+	//reading the texture
+	unsigned char * texture = ReadTexture3D( "noise3d.064.tex", &nums, &numt, &nump);
+	//loading the texture
+	glTexImage3D(GL_TEXTURE_3D, 0, GL_RGBA, nums, numt, nump, 0, GL_RGBA, GL_UNSIGNED_BYTE, texture);
 
+	// Unbind the texture
+	glBindTexture(GL_TEXTURE_3D, 0);
+
+	glGenTextures( 1, &CubeName );
+	glBindTexture( GL_TEXTURE_CUBE_MAP, CubeName );
+	glTexParameterf( GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_REPEAT );
+	glTexParameterf( GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_REPEAT );
+	glTexParameterf( GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_REPEAT );
+	glTexParameterf( GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR );
+	glTexParameterf( GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR );
+	for( int file = 0; file < 6; file++ )
+	{
+		int nums, numt;
+		unsigned char * texture2d = BmpToTexture( FaceFiles[file], &nums, &numt );
+		if( texture2d == NULL )
+			fprintf( stderr, "Could not open BMP 2D texture '%s'", FaceFiles[file] );
+		else
+			fprintf( stderr, "BMP 2D texture '%s' read -- nums = %d, numt = %d\n", FaceFiles[file], nums, numt );
+		glTexImage2D( GL_TEXTURE_CUBE_MAP_POSITIVE_X + file, 0, 3, nums, numt, 0,
+			GL_RGB, GL_UNSIGNED_BYTE, texture2d );
+		delete [ ] texture2d;
+	}
 	Pattern.Init( );
 	bool valid = Pattern.Create( (char *)"pattern.vert", (char *)"pattern.frag" );
 	if( !valid )
@@ -733,6 +784,17 @@ InitGraphics( )
 	Pattern.SetUniformVariable( (char *)"uColor", 1.f, 0.5f, 0.f );
 	Pattern.SetUniformVariable( (char *)"uSpecularColor", 1.f, 1.f, 1.f );
 	Pattern.SetUniformVariable( (char *)"uShininess", 12.f );
+
+	int uReflectUnit = 5; int uRefractUnit = 6; float uAd = 0.1f; float uBd = 0.1f; float uEta = 1.4f; float uTol = 0.f;
+	float uMix = 0.4f;
+	glActiveTexture( GL_TEXTURE0 + uReflectUnit ); glBindTexture( GL_TEXTURE_CUBE_MAP, CubeName ); glActiveTexture( GL_TEXTURE0 + uRefractUnit ); glBindTexture( GL_TEXTURE_CUBE_MAP, CubeName );
+	Pattern.SetUniformVariable( "uReflectUnit", uReflectUnit ); 
+	Pattern.SetUniformVariable( "uRefractUnit", uRefractUnit ); 
+	Pattern.SetUniformVariable( "uMix", uMix ); 
+	Pattern.SetUniformVariable( "uEta", uEta );
+	glCallList( AxesList );
+
+
 	Pattern.UnUse( );
 }
 
@@ -752,8 +814,8 @@ InitLists( )
 
 	// create the object:
 
-	SphereList = glGenLists( 1 );
-	glNewList( SphereList, GL_COMPILE );
+	GridofQuadsList= glGenLists( 1 );
+	glNewList( GridofQuadsList, GL_COMPILE );
 		OsuSphere( 1., 64, 64 );
 	glEndList( );
 
@@ -909,6 +971,26 @@ MouseMotion( int x, int y )
 }
 
 
+//taken directly from lecture slides
+unsigned char * ReadTexture3D( char *filename, int *width, int *height, int *depth) {
+	FILE *fp = fopen(filename, "rb"); 
+	if( fp == NULL )
+		return NULL;
+	
+	int nums, numt, nump;
+	
+	fread(&nums, 4, 1, fp);
+	fread(&numt, 4, 1, fp);
+	fread(&nump, 4, 1, fp);
+	
+	*width = nums; 
+	*height = numt; 
+	*depth = nump;
+	
+	unsigned char * texture = new unsigned char[ 4 * nums * numt * nump ];
+	fread(texture, 4 * nums * numt * nump, 1, fp); fclose(fp);
+	return texture;
+}
 // reset the transformations and the colors:
 // this only sets the global variables --
 // the glut main loop is responsible for redrawing the scene
