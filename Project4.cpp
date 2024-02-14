@@ -174,7 +174,6 @@ int		Xmouse, Ymouse;			// mouse values
 float	Xrot, Yrot;				// rotation angles in degrees
 GLuint CubeName;
 GLuint Noise3;
-int GridofQuadsList;
 
 
 // function prototypes:
@@ -261,9 +260,12 @@ MulArray3(float factor, float a, float b, float c )
 //#include "loadobjfile.cpp"
 #include "keytime.cpp"
 #include "glslprogram.cpp"
+Keytimes KeyA,KeyB,KeyD;
+Keytimes NoiseAmp, NoiseFreq;
 
 float NowS0, NowT0, NowD;
 GLSLProgram Pattern;
+const int MSEC=10000;
 char * FaceFiles[6] =
 {
 	"kec.posx.bmp",
@@ -415,16 +417,15 @@ Display( )
 	// since we are using glScalef( ), be sure the normals get unitized:
 
 	glEnable( GL_NORMALIZE );
-	glActiveTexture( GL_TEXTURE3 );
-	glBindTexture(GL_TEXTURE_3D, CubeName);
+	glActiveTexture( GL_TEXTURE3);
 	glBindTexture(GL_TEXTURE_3D, Noise3 );
-
 
 
 	// draw the box object by calling up its display list:
 
 	Pattern.Use( );
 
+	Pattern.SetUniformVariable("Noise3", 3);
 	// set the uniform variables that will change over time:
 
 	NowS0 = 0.5f;
@@ -433,6 +434,57 @@ Display( )
 	Pattern.SetUniformVariable( (char *)"uS0", NowS0 );
 	Pattern.SetUniformVariable( (char *)"uT0", NowT0 );
 	Pattern.SetUniformVariable( (char *)"uD" , NowD  );
+
+	int uReflectUnit = 5; 
+	int uRefractUnit = 6; 
+	float uAd = 0.1f; 
+	float uBd = 0.1f; 
+	float uEta = 1.4f; 
+	float uTol = 0.f;
+	float uMix = 0.4f;
+	glActiveTexture( GL_TEXTURE0 + uReflectUnit ); 
+	glBindTexture( GL_TEXTURE_CUBE_MAP, CubeName ); 
+	glActiveTexture( GL_TEXTURE0 + uRefractUnit ); 
+	glBindTexture( GL_TEXTURE_CUBE_MAP, CubeName );
+	Pattern.SetUniformVariable( "uReflectUnit", uReflectUnit ); 
+	Pattern.SetUniformVariable( "uRefractUnit", uRefractUnit ); 
+	Pattern.SetUniformVariable( "uMix", uMix ); 
+	Pattern.SetUniformVariable( "uEta", uEta );
+	 int msec = glutGet( GLUT_ELAPSED_TIME )  %  MSEC;
+
+	//turn that into a time in seconds:
+    float nowTime = (float)msec  / 1000.0f;
+
+	Pattern.SetUniformVariable((char*)"uNoiseAmp", NoiseAmp.GetValue(nowTime));
+	Pattern.SetUniformVariable((char*)"uNoiseFreq", NoiseFreq.GetValue(nowTime));
+	
+	Pattern.SetUniformVariable((char *) "uA",KeyA.GetValue(nowTime));
+	Pattern.SetUniformVariable( (char *)"uB", KeyB.GetValue(nowTime));
+	Pattern.SetUniformVariable( (char *)"uD",KeyD.GetValue(nowTime));
+	//making the square
+	float xmin = -1.f;	
+	float xmax =  1.f;	
+	float ymin = -1.f;
+	float ymax =  1.f;	
+	float dx = xmax - xmin;
+	float dy = ymax - ymin;
+	float z = 0.f;	
+	int numy = 128;
+	int numx = 128;	
+	for( int iy = 0; iy < numy; iy++ )
+	{
+		glBegin( GL_QUAD_STRIP );
+		glNormal3f( 0., 0., 1. );
+		for( int ix = 0; ix <= numx; ix++ ){
+			glTexCoord2f( (float)ix/(float)numx, (float)(iy+0)/(float)numy );
+			glVertex3f( xmin + dx*(float)ix/(float)numx, ymin + dy*(float)(iy+0)/(float)numy, z );
+			glTexCoord2f( (float)ix/(float)numx, (float)(iy+1)/(float)numy );
+			glVertex3f( xmin + dx*(float)ix/(float)numx, ymin + dy*(float)(iy+1)/(float)numy, z );
+		}
+		glEnd();
+	}
+
+
 
 
 	Pattern.UnUse( );       // Pattern.Use(0);  also works
@@ -717,6 +769,42 @@ InitGraphics( )
 	// but, this sets us up nicely for doing animation
 
 	glutIdleFunc( Animate );
+	NoiseAmp.Init( );
+        NoiseAmp.AddTimeValue(  0.0, 0.0);
+        NoiseAmp.AddTimeValue(  2.0,  0.2 );
+        NoiseAmp.AddTimeValue(  5.0,  0.5 );
+        NoiseAmp.AddTimeValue(  8.0,  0.7);
+        NoiseAmp.AddTimeValue( 10.0,  0.9);
+
+	 NoiseFreq.Init( );
+        NoiseFreq.AddTimeValue(  0.0, 0.0);
+        NoiseFreq.AddTimeValue(  2.0,  2.0 );
+        NoiseFreq.AddTimeValue(  5.0,  5.0 );
+        NoiseFreq.AddTimeValue(  8.0,  7.0);
+        NoiseFreq.AddTimeValue( 10.0,  9.0);
+
+
+	
+	KeyA.Init( );
+        KeyA.AddTimeValue(  0.0, 0.1);
+        KeyA.AddTimeValue(  1.0, 0.3);
+        KeyA.AddTimeValue(  2.0,  0.5);
+        KeyA.AddTimeValue(  3.0,  0.7);
+        KeyA.AddTimeValue( 5.0,  1.0);
+
+	KeyB.Init( );
+        KeyB.AddTimeValue(  0.0, 0.1);
+        KeyB.AddTimeValue(  1.0,0.5);
+        KeyB.AddTimeValue(  2.0,  1.0);
+        KeyB.AddTimeValue(  3.0,  1.5);
+        KeyB.AddTimeValue( 5.0,  2.0);
+
+	KeyD.Init( );
+        KeyD.AddTimeValue(  0.0, 0.1);
+        KeyD.AddTimeValue(  1.0, 0.5);
+        KeyD.AddTimeValue(  2.0,  1.0);
+        KeyD.AddTimeValue(  3.0,  1.5);
+        KeyD.AddTimeValue( 5.0,  2.0);
 
 	// init the glew package (a window must be open to do this):
 
@@ -732,23 +820,7 @@ InitGraphics( )
 #endif
 
 	// all other setups go here, such as GLSLProgram and KeyTime setups:
-		glGenTextures(1, &Noise3);
-	glBindTexture(GL_TEXTURE_3D, Noise3);
-	glPixelStorei(GL_UNPACK_ALIGNMENT,1);
-	glTexParameteri( GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_REPEAT );
-	glTexParameteri( GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_REPEAT );
-	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_REPEAT); 
-	glTexParameteri( GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR );
-	glTexParameteri( GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	int nums, numt, nump;
-	//reading the texture
-	unsigned char * texture = ReadTexture3D( "noise3d.064.tex", &nums, &numt, &nump);
-	//loading the texture
-	glTexImage3D(GL_TEXTURE_3D, 0, GL_RGBA, nums, numt, nump, 0, GL_RGBA, GL_UNSIGNED_BYTE, texture);
-
-	// Unbind the texture
-	glBindTexture(GL_TEXTURE_3D, 0);
-
+	
 	glGenTextures( 1, &CubeName );
 	glBindTexture( GL_TEXTURE_CUBE_MAP, CubeName );
 	glTexParameterf( GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_REPEAT );
@@ -768,8 +840,28 @@ InitGraphics( )
 			GL_RGB, GL_UNSIGNED_BYTE, texture2d );
 		delete [ ] texture2d;
 	}
+	// glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
+	
+	
+	glGenTextures(1, &Noise3);
+	glBindTexture(GL_TEXTURE_3D, Noise3);
+	glPixelStorei(GL_UNPACK_ALIGNMENT,1);
+	glTexParameteri( GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_REPEAT );
+	glTexParameteri( GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_REPEAT );
+	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_REPEAT); 
+	glTexParameteri( GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR );
+	glTexParameteri( GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	int nums, numt, nump;
+	//reading the texture
+	unsigned char * texture = ReadTexture3D( "noise3d.064.tex", &nums, &numt, &nump);
+	//loading the texture
+	glTexImage3D(GL_TEXTURE_3D, 0, GL_RGBA, nums, numt, nump, 0, GL_RGBA, GL_UNSIGNED_BYTE, texture);
+
+	// Unbind the texture
+	glBindTexture(GL_TEXTURE_3D, 0);
+
 	Pattern.Init( );
-	bool valid = Pattern.Create( (char *)"pattern.vert", (char *)"pattern.frag" );
+	bool valid = Pattern.Create( (char *)"pattern.vert", (char *)"pattern.frag");
 	if( !valid )
 		fprintf( stderr, "Could not create the Pattern shader!\n" );
 	else
@@ -784,16 +876,6 @@ InitGraphics( )
 	Pattern.SetUniformVariable( (char *)"uColor", 1.f, 0.5f, 0.f );
 	Pattern.SetUniformVariable( (char *)"uSpecularColor", 1.f, 1.f, 1.f );
 	Pattern.SetUniformVariable( (char *)"uShininess", 12.f );
-
-	int uReflectUnit = 5; int uRefractUnit = 6; float uAd = 0.1f; float uBd = 0.1f; float uEta = 1.4f; float uTol = 0.f;
-	float uMix = 0.4f;
-	glActiveTexture( GL_TEXTURE0 + uReflectUnit ); glBindTexture( GL_TEXTURE_CUBE_MAP, CubeName ); glActiveTexture( GL_TEXTURE0 + uRefractUnit ); glBindTexture( GL_TEXTURE_CUBE_MAP, CubeName );
-	Pattern.SetUniformVariable( "uReflectUnit", uReflectUnit ); 
-	Pattern.SetUniformVariable( "uRefractUnit", uRefractUnit ); 
-	Pattern.SetUniformVariable( "uMix", uMix ); 
-	Pattern.SetUniformVariable( "uEta", uEta );
-	glCallList( AxesList );
-
 
 	Pattern.UnUse( );
 }
@@ -813,11 +895,6 @@ InitLists( )
 	glutSetWindow( MainWindow );
 
 	// create the object:
-
-	GridofQuadsList= glGenLists( 1 );
-	glNewList( GridofQuadsList, GL_COMPILE );
-		OsuSphere( 1., 64, 64 );
-	glEndList( );
 
 
 	// create the axes:

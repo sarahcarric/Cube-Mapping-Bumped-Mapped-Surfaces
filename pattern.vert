@@ -1,3 +1,4 @@
+#version 120
 uniform float uA, uB, uD;
 float uC=0.0;
 const float PI= 2.*3.14159265;
@@ -6,6 +7,8 @@ varying vec3	vNs;
 varying vec3	vEs;
 varying vec3	vMC;
 
+
+varying vec2	vST;
 
 void
 main( )
